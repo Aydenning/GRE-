@@ -1,349 +1,131 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="GRE每日任務">
-    <title>GRE Daily 30</title>
-    <style>
-        :root {
-            --primary: #2c3e50;
-            --accent: #27ae60;
-            --danger: #e74c3c;
-            --bg: #f4f6f7;
-            --card-bg: #ffffff;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* 頂部進度條 */
-        .header-bar {
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            margin-top: 10px;
-            color: #7f8c8d;
-            font-size: 0.9em;
-            font-weight: 600;
-        }
-
-        .progress-track {
-            flex-grow: 1;
-            height: 8px;
-            background-color: #dfe6e9;
-            border-radius: 4px;
-            margin: 0 15px;
-            overflow: hidden;
-        }
+<script>
+        // --- 設定與參數 ---
+        const DAILY_LIMIT = 30; // 每日單字量
+        const REQUEST_RETENTION = 0.9; // 希望保留率 90% (FSRS 標準)
         
-        .progress-fill {
-            height: 100%;
-            background-color: var(--accent);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
+        // FSRS v5 預設參數 (W weights)
+        // 這些權重是用數百萬條學習紀錄訓練出來的通用標準
+        const w = [
+            0.40255, 1.18385, 3.173, 15.69105, 
+            7.19605, 0.5345, 1.4604, 0.0046, 
+            1.54575, 0.1192, 1.01925, 1.9395, 
+            0.11, 0.29605, 2.2707, 0.28855, 
+            0.37605, 0.85485, 0.2464
+        ];
 
-        /* 卡片容器 */
-        .card-container {
-            background: var(--card-bg);
-            width: 100%;
-            max-width: 400px;
-            min-height: 500px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 30px;
-            position: relative;
-            flex-grow: 1; 
-            margin-bottom: 20px;
-            transition: transform 0.2s;
-        }
-
-        .word { font-size: 2.5em; font-weight: 800; color: var(--primary); margin-bottom: 10px; text-align: center; line-height: 1.1; }
-        .phonetic { color: #95a5a6; margin-bottom: 20px; font-family: "Menlo", monospace; font-size: 1.1em; }
-        
-        .definition { 
-            font-size: 1.3em; 
-            margin-bottom: 20px; 
-            color: #d35400; 
-            display: none; 
-            font-weight: 600;
-            text-align: center;
-            width: 100%;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 15px;
-        }
-
-        /* 例句區塊 */
-        .examples-container {
-            width: 100%;
-            display: none;
-            text-align: left;
-            overflow-y: auto;
-            max-height: 250px;
-        }
-
-        .example-item {
-            background-color: #f8f9fa;
-            border-left: 4px solid var(--accent);
-            padding: 12px;
-            margin-bottom: 12px;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .en-sent { font-size: 1.05em; color: #34495e; margin-bottom: 5px; line-height: 1.4; font-weight: 500; }
-        .zh-sent { font-size: 0.9em; color: #7f8c8d; line-height: 1.4; }
-
-        /* 按鈕群組 */
-        .btn-group { 
-            display: flex; 
-            gap: 12px; 
-            width: 100%; 
-            position: sticky;
-            bottom: 20px;
-            z-index: 10;
-        }
-        
-        button {
-            border: none;
-            padding: 18px 0;
-            border-radius: 16px;
-            cursor: pointer;
-            font-size: 1.1em;
-            font-weight: 700;
-            transition: transform 0.1s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        button:active { transform: scale(0.96); }
-
-        #show-answer { background-color: var(--primary); color: white; width: 100%; }
-        
-        .rating-btns { display: none; width: 100%; justify-content: space-between; gap: 10px;}
-        .btn-hard { background-color: var(--danger); color: white; flex: 1; }
-        .btn-good { background-color: #f39c12; color: white; flex: 1; }
-        .btn-easy { background-color: var(--accent); color: white; flex: 1; }
-
-        /* 結算畫面 (Summary View) */
-        .summary-view {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            width: 100%;
-            animation: fadeIn 0.5s;
-        }
-
-        .score-circle {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 8px solid var(--accent);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2.5em;
-            font-weight: bold;
-            color: var(--accent);
-            margin-bottom: 20px;
-        }
-
-        .summary-stats {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            margin-bottom: 30px;
-        }
-        .stat-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 12px;
-            width: 40%;
-        }
-        .stat-num { font-size: 1.5em; font-weight: bold; display: block; }
-        .stat-label { font-size: 0.9em; color: #7f8c8d; }
-        
-        .stat-correct { color: var(--accent); }
-        .stat-wrong { color: var(--danger); }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .hidden { display: none !important; }
-
-    </style>
-</head>
-<body>
-
-    <div class="header-bar">
-        <span id="progress-text">0 / 30</span>
-        <div class="progress-track">
-            <div class="progress-fill" id="progress-fill"></div>
-        </div>
-        <span id="session-score" style="color: var(--accent)">✓ 0</span>
-    </div>
-
-    <div class="card-container" id="main-container">
-        
-        <div id="card-view">
-            <div class="word" id="word-text">Loading...</div>
-            <div class="phonetic" id="word-phonetic"></div>
-            <div class="definition" id="word-def"></div>
-            <div class="examples-container" id="word-examples"></div>
-        </div>
-
-        <div id="summary-view" class="summary-view">
-            <h2>今日任務完成！</h2>
-            <div class="score-circle" id="final-score">85%</div>
-            
-            <div class="summary-stats">
-                <div class="stat-box">
-                    <span class="stat-num stat-correct" id="summary-correct">0</span>
-                    <span class="stat-label">正確 (記得)</span>
-                </div>
-                <div class="stat-box">
-                    <span class="stat-num stat-wrong" id="summary-wrong">0</span>
-                    <span class="stat-label">錯誤 (忘記)</span>
-                </div>
-            </div>
-
-            <p style="color:#7f8c8d; line-height:1.6; margin-bottom: 30px;">
-                完成每日 30 字的訓練是記憶的關鍵。<br>
-                請讓大腦休息，明天繼續挑戰！
-            </p>
-            
-            <button onclick="finishSession()" style="background:#95a5a6; width:100%; font-size:1em; padding:15px;">關閉並儲存進度</button>
-        </div>
-
-        <div id="empty-view" class="summary-view hidden">
-            <div style="font-size: 4em; margin-bottom: 20px;">☕️</div>
-            <h2>目前沒有待辦事項</h2>
-            <p>您已經完成了所有的複習進度。</p>
-            <button onclick="resetData()" style="background:#bdc3c7; margin-top:30px; padding:10px 20px; font-size:0.9em; box-shadow:none; color: white;">重置所有資料 (測試用)</button>
-        </div>
-
-    </div>
-
-    <div class="btn-group" id="action-area">
-        <button id="show-answer" onclick="showAnswer()">顯示答案</button>
-        <div class="rating-btns" id="rating-btns">
-            <button class="btn-hard" onclick="rateWord(1)">忘記了</button>
-            <button class="btn-good" onclick="rateWord(2)">有點印象</button>
-            <button class="btn-easy" onclick="rateWord(3)">秒殺</button>
-        </div>
-    </div>
-
-    <script>
-        // 設定每日測驗量
-        const DAILY_LIMIT = 30;
-
-        // 30個範例單字 (您可以自行擴充至 3000)
+        // 初始單字庫
         const defaultWords = [
-            { id: 1, word: "Abate", phonetic: "/əˈbeɪt/", def: "v. 減輕；減少", examples: [{en: "The storm suddenly abated.", zh: "暴風雨突然減弱了。"}, {en: "They waited for the fury to abate.", zh: "他們等待憤怒平息。"}] },
-            { id: 2, word: "Aberrant", phonetic: "/əˈber.ənt/", def: "adj. 異常的", examples: [{en: "Aberrant behavior is a sign of stress.", zh: "異常行為是壓力的跡象。"}, {en: "The chromosome is aberrant.", zh: "這個染色體是異常的。"}] },
-            { id: 3, word: "Abeyance", phonetic: "/əˈbeɪ.əns/", def: "n. 暫時擱置", examples: [{en: "The plan is in abeyance.", zh: "計畫暫時擱置。"}, {en: "Hostilities are in abeyance.", zh: "敵對狀態暫時中止。"}] },
-            { id: 4, word: "Abscond", phonetic: "/æbˈskɒnd/", def: "v. 潛逃", examples: [{en: "He absconded with the money.", zh: "他捲款潛逃了。"}, {en: "The prisoner absconded.", zh: "囚犯逃跑了。"}] },
-            { id: 5, word: "Abstemious", phonetic: "/æbˈstiː.mi.əs/", def: "adj. 有節制的", examples: [{en: "He is abstemious in eating.", zh: "他飲食很有節制。"}, {en: "An abstemious life.", zh: "簡樸的生活。"}] },
-            { id: 6, word: "Admonish", phonetic: "/ədˈmɒn.ɪʃ/", def: "v. 告誡", examples: [{en: "She admonished him gently.", zh: "她溫和地告誡他。"}, {en: "Users were admonished to change passwords.", zh: "用戶被告誡要更改密碼。"}] },
-            { id: 7, word: "Adulterate", phonetic: "/əˈdʌl.tə.reɪt/", def: "v. 摻雜", examples: [{en: "Milk adulterated with water.", zh: "摻了水的牛奶。"}, {en: "Don't adulterate the truth.", zh: "不要混淆視聽。"}] },
-            { id: 8, word: "Aesthetic", phonetic: "/esˈθet.ɪk/", def: "adj. 美學的", examples: [{en: "Aesthetic appeal.", zh: "美學吸引力。"}, {en: "The building has little aesthetic value.", zh: "這棟建築沒什麼美感。"}] },
-            { id: 9, word: "Aggrandize", phonetic: "/əˈɡræn.daɪz/", def: "v. 擴大(權勢)", examples: [{en: "He wanted to aggrandize his estate.", zh: "他想擴大他的莊園。"}, {en: "Aggrandize oneself.", zh: "抬高身價。"}] },
-            { id: 10, word: "Alacrity", phonetic: "/əˈlæk.rə.ti/", def: "n. 欣然；敏捷", examples: [{en: "She accepted with alacrity.", zh: "她欣然接受。"}, {en: "He moved with alacrity.", zh: "他動作敏捷。"}] },
-            { id: 11, word: "Amalgamate", phonetic: "/əˈmæl.ɡə.meɪt/", def: "v. 合併", examples: [{en: "The schools amalgamated.", zh: "學校合併了。"}, {en: "Amalgamate two departments.", zh: "合併兩個部門。"}] },
-            { id: 12, word: "Ambiguous", phonetic: "/æmˈbɪɡ.ju.əs/", def: "adj. 模稜兩可的", examples: [{en: "An ambiguous answer.", zh: "模稜兩可的回答。"}, {en: "The wording is ambiguous.", zh: "措辭含糊。"}] },
-            { id: 13, word: "Ameliorate", phonetic: "/əˈmiː.li.ə.reɪt/", def: "v. 改善", examples: [{en: "Ameliorate the situation.", zh: "改善局勢。"}, {en: "Steps to ameliorate poverty.", zh: "改善貧困的措施。"}] },
-            { id: 14, word: "Anachronism", phonetic: "/əˈnæk.rə.nɪ.zəm/", def: "n. 時代錯誤", examples: [{en: "The sword is an anachronism in this movie.", zh: "這部電影出現劍是時代錯誤。"}, {en: "He is an anachronism.", zh: "他是個老古董。"}] },
-            { id: 15, word: "Analogous", phonetic: "/əˈnæl.ə.ɡəs/", def: "adj. 類似的", examples: [{en: "Brains are analogous to computers.", zh: "大腦類似電腦。"}, {en: "The situation is analogous.", zh: "情況類似。"}] },
-            { id: 16, word: "Anarchy", phonetic: "/ˈæn.ə.ki/", def: "n. 無政府狀態", examples: [{en: "The city slid into anarchy.", zh: "城市陷入混亂。"}, {en: "Total anarchy.", zh: "完全的無政府狀態。"}] },
-            { id: 17, word: "Anomalous", phonetic: "/əˈnɒm.ə.ləs/", def: "adj. 反常的", examples: [{en: "Anomalous results.", zh: "反常的結果。"}, {en: "In an anomalous position.", zh: "處於反常的位置。"}] },
-            { id: 18, word: "Antipathy", phonetic: "/ænˈtɪp.ə.θi/", def: "n. 反感", examples: [{en: "Deep antipathy.", zh: "深切的反感。"}, {en: "Mutual antipathy.", zh: "互相厭惡。"}] },
-            { id: 19, word: "Apathy", phonetic: "/ˈæp.ə.θi/", def: "n. 冷漠", examples: [{en: "Voter apathy.", zh: "選民的冷漠。"}, {en: "Apathy towards the poor.", zh: "對窮人的冷漠。"}] },
-            { id: 20, word: "Appease", phonetic: "/əˈpiːz/", def: "v. 平息；安撫", examples: [{en: "Appease the angry crowd.", zh: "安撫憤怒的群眾。"}, {en: "Appease one's hunger.", zh: "充飢。"}] },
-            { id: 21, word: "Apposite", phonetic: "/ˈæp.ə.zɪt/", def: "adj. 適當的", examples: [{en: "An apposite remark.", zh: "貼切的評論。"}, {en: "Very apposite to the case.", zh: "對此案非常適當。"}] },
-            { id: 22, word: "Approbation", phonetic: "/ˌæp.rəˈbeɪ.ʃən/", def: "n. 認可", examples: [{en: "Win approbation.", zh: "獲得認可。"}, {en: "Looked for signs of approbation.", zh: "尋找贊許的跡象。"}] },
-            { id: 23, word: "Arbitrary", phonetic: "/ˈɑː.bɪ.trər.i/", def: "adj. 任意的；武斷的", examples: [{en: "An arbitrary decision.", zh: "武斷的決定。"}, {en: "Arbitrary rule.", zh: "專制統治。"}] },
-            { id: 24, word: "Arcane", phonetic: "/ɑːˈkeɪn/", def: "adj. 深奧的", examples: [{en: "Arcane rituals.", zh: "神祕的儀式。"}, {en: "Arcane language.", zh: "晦澀的語言。"}] },
-            { id: 25, word: "Archaic", phonetic: "/ɑːˈkeɪ.ɪk/", def: "adj. 古老的", examples: [{en: "Archaic laws.", zh: "過時的法律。"}, {en: "Archaic words.", zh: "古字。"}] },
-            { id: 26, word: "Arduous", phonetic: "/ˈɑː.dʒu.əs/", def: "adj. 艱鉅的", examples: [{en: "Arduous journey.", zh: "艱鉅的旅程。"}, {en: "Arduous task.", zh: "艱鉅的任務。"}] },
-            { id: 27, word: "Articulate", phonetic: "/ɑːˈtɪk.jə.lət/", def: "v. 清晰表達", examples: [{en: "Articulate your thoughts.", zh: "清楚表達你的想法。"}, {en: "Highly articulate.", zh: "口齒非常伶俐。"}] },
-            { id: 28, word: "Artless", phonetic: "/ˈɑːt.ləs/", def: "adj. 天真的", examples: [{en: "Artless sincerity.", zh: "天真無邪的真誠。"}, {en: "An artless question.", zh: "單純的問題。"}] },
-            { id: 29, word: "Ascetic", phonetic: "/əˈset.ɪk/", def: "adj. 苦行的", examples: [{en: "Ascetic life.", zh: "苦行生活。"}, {en: "Ascetic monk.", zh: "苦行僧。"}] },
-            { id: 30, word: "Assuage", phonetic: "/əˈsweɪdʒ/", def: "v. 緩和", examples: [{en: "Assuage his grief.", zh: "撫平他的悲傷。"}, {en: "Assuage thirst.", zh: "解渴。"}] }
+            { id: 1, word: "Abate", phonetic: "/əˈbeɪt/", def: "v. 減輕；減少", examples: [{en: "The storm suddenly abated.", zh: "暴風雨突然減弱了。"}] },
+            { id: 2, word: "Aberrant", phonetic: "/əˈber.ənt/", def: "adj. 異常的", examples: [{en: "Aberrant behavior.", zh: "異常行為。"}] },
+            { id: 3, word: "Cacophony", phonetic: "/kəˈkɒf.ə.ni/", def: "n. 刺耳的聲音", examples: [{en: "A cacophony of bells.", zh: "刺耳的鐘聲。"}] },
+            // ... 這裡可以繼續擴充您的單字
         ];
 
         let words = [];
-        let sessionQueue = []; // 今天的學習隊列
+        let sessionQueue = [];
         let sessionStats = { correct: 0, wrong: 0, total: 0, currentIndex: 0 };
         let currentWord = null;
 
-        function init() {
-            // 使用 v3 key 避免衝突
-            const stored = localStorage.getItem('gre_vocab_v3');
+        // --- FSRS 核心演算法 ---
+        
+        // 計算下次間隔天數 (Interval)
+        function nextInterval(s) {
+            // 公式：Interval = S * 9 * (1/R - 1)
+            // 讓 R (可提取性) 降到 90% 所需的時間
+            return Math.max(1, Math.round(s * 9 * (1/REQUEST_RETENTION - 1)));
+        }
+
+        // 初始學習 (First learning)
+        function initFSRS(grade) {
+            // grade: 1(Forgot), 2(Hard), 3(Good), 4(Easy)
+            // 根據按鈕對應：忘記=1, 模糊=2(Hard), 秒殺=4(Easy) - 這裡我們簡化對應
+            // 我們的按鈕: 忘記(1), 模糊(2->3 Good), 秒殺(3->4 Easy)
+            let rating = 0;
+            if(grade === 1) rating = 1;
+            if(grade === 2) rating = 3; // 模糊通常對應 Good
+            if(grade === 3) rating = 4; // 秒殺對應 Easy
+
+            // 初始 S (Stability)
+            const s = w[rating - 1]; 
+            // 初始 D (Difficulty)
+            const d = w[4] - (rating - 3) * w[5];
             
+            return { s: s, d: d };
+        }
+
+        // 複習演算法 (Review updates)
+        function nextFSRS(d, s, grade, daysSinceReview) {
+            let rating = 0;
+            if(grade === 1) rating = 1;
+            if(grade === 2) rating = 3;
+            if(grade === 3) rating = 4;
+
+            // 1. 計算新的 Difficulty (D)
+            // 限制 D 在 1 到 10 之間
+            let nextD = d - w[6] * (rating - 3);
+            nextD = w[5] * d + (1 - w[5]) * nextD;
+            if (nextD < 1) nextD = 1;
+            if (nextD > 10) nextD = 10;
+
+            // 2. 計算新的 Stability (S)
+            let nextS = s;
+            if (rating === 1) {
+                // 忘記了 (Again)
+                nextS = w[11] * Math.pow(d, -w[12]) * (Math.pow(s + 1, w[13]) - 1) * Math.exp(w[14] * (1 - REQUEST_RETENTION));
+            } else {
+                // 記得 (Hard/Good/Easy)
+                // FSRS v5 核心公式：S_new = S * (1 + factor)
+                const hardPenalty = (rating === 2) ? w[15] : 1;
+                const easyBonus = (rating === 4) ? w[16] : 1;
+                
+                // 計算 Retrievability (R)
+                const r = Math.pow(1 + daysSinceReview / (9 * s), -1);
+
+                nextS = s * (1 + Math.exp(w[8]) * (11 - d) * Math.pow(s, -w[9]) * (Math.exp((1 - r) * w[10]) - 1) * hardPenalty * easyBonus);
+            }
+
+            return { s: nextS, d: nextD };
+        }
+
+        // --- 應用程式邏輯 ---
+
+        function init() {
+            // 使用新 key v5
+            const stored = localStorage.getItem('gre_vocab_v5_fsrs'); 
             if (stored) {
                 words = JSON.parse(stored);
             } else {
-                // 初始化所有單字
-                words = defaultWords.map(w => ({
-                    ...w,
-                    nextReview: Date.now(), // 初始狀態皆為可複習
-                    interval: 0,
-                    repetitions: 0
+                words = defaultWords.map(w => ({ 
+                    ...w, 
+                    nextReview: Date.now(), 
+                    interval: 0, 
+                    repetitions: 0,
+                    // FSRS 專屬屬性
+                    fsrs_s: 0, // Stability
+                    fsrs_d: 0, // Difficulty
+                    lastReviewDate: 0 
                 }));
                 saveData();
             }
-
-            // 準備今日任務
             prepareSession();
+            updateTotalCount();
         }
 
         function prepareSession() {
             const now = Date.now();
-            
-            // 1. 找出所有「到期」的舊單字 (Review)
+            // FSRS: 找出 nextReview 小於現在的
             const dueReview = words.filter(w => w.nextReview <= now && w.repetitions > 0);
-            
-            // 2. 找出所有「新單字」 (New)
             const newWords = words.filter(w => w.repetitions === 0);
 
-            // 3. 組合隊列：優先複習，如果不滿 30 字，用新單字補
             sessionQueue = [...dueReview];
-            
             if (sessionQueue.length < DAILY_LIMIT) {
                 const quotaLeft = DAILY_LIMIT - sessionQueue.length;
                 sessionQueue = sessionQueue.concat(newWords.slice(0, quotaLeft));
             } else {
-                // 如果到期單字超過 30，就只取前 30 (避免負擔太重)
                 sessionQueue = sessionQueue.slice(0, DAILY_LIMIT);
             }
 
-            // 初始化 session 數據
-            sessionStats.total = sessionQueue.length;
-            sessionStats.currentIndex = 0;
-            sessionStats.correct = 0;
-            sessionStats.wrong = 0;
-
+            sessionStats = { total: sessionQueue.length, currentIndex: 0, correct: 0, wrong: 0 };
             updateHeader();
 
             if (sessionQueue.length > 0) {
@@ -354,31 +136,24 @@
         }
 
         function updateHeader() {
-            // 更新進度條
             const progress = sessionStats.currentIndex;
             const total = sessionStats.total;
             const percent = total === 0 ? 0 : (progress / total) * 100;
-            
             document.getElementById('progress-text').innerText = `${progress} / ${total}`;
             document.getElementById('progress-fill').style.width = `${percent}%`;
             document.getElementById('session-score').innerText = `✓ ${sessionStats.correct}`;
         }
 
         function showNextCard() {
-            // 如果隊列跑完了 -> 顯示結算
             if (sessionStats.currentIndex >= sessionStats.total) {
                 showSummary();
                 return;
             }
-
             currentWord = sessionQueue[sessionStats.currentIndex];
-
-            // 渲染卡片
             document.getElementById('word-text').innerText = currentWord.word;
-            document.getElementById('word-phonetic').innerText = currentWord.phonetic;
+            document.getElementById('word-phonetic').innerText = currentWord.phonetic || "";
             document.getElementById('word-def').innerText = currentWord.def;
 
-            // 渲染例句
             const exContainer = document.getElementById('word-examples');
             exContainer.innerHTML = '';
             if (currentWord.examples) {
@@ -390,14 +165,12 @@
                 });
             }
 
-            // 重置介面狀態
             document.getElementById('word-def').style.display = 'none';
             document.getElementById('word-examples').style.display = 'none';
             document.getElementById('show-answer').style.display = 'block';
             document.getElementById('rating-btns').style.display = 'none';
-            document.getElementById('card-view').classList.remove('hidden');
-            document.getElementById('summary-view').classList.add('hidden');
-            document.getElementById('action-area').style.display = 'flex';
+            document.getElementById('card-view').style.display = 'flex';
+            document.getElementById('summary-view').style.display = 'none';
         }
 
         function showAnswer() {
@@ -407,88 +180,108 @@
             document.getElementById('rating-btns').style.display = 'flex';
         }
 
-        function rateWord(quality) {
-            // 找出在主資料庫中的實際參照 (因為 sessionQueue 只是副本)
+        function rateWord(grade) {
+            // grade: 1(忘記), 2(模糊), 3(秒殺)
             const wordInDb = words.find(w => w.id === currentWord.id);
             const now = Date.now();
             const oneDay = 24 * 60 * 60 * 1000;
 
-            // 記分板邏輯
-            if (quality === 1) {
-                // 忘記 -> 算錯 -> 明天再複習
-                sessionStats.wrong++;
-                wordInDb.interval = 1; 
-                wordInDb.repetitions = 0; // 重置熟練度
-            } else {
-                // 記得 -> 算對
-                sessionStats.correct++;
-                if (quality === 2) { // 模糊
-                    wordInDb.interval = wordInDb.interval === 0 ? 3 : Math.ceil(wordInDb.interval * 1.5);
-                    wordInDb.repetitions += 1;
-                } else { // 秒殺
-                    wordInDb.interval = wordInDb.interval === 0 ? 7 : Math.ceil(wordInDb.interval * 2.5);
-                    wordInDb.repetitions += 1;
-                }
+            // 計算距離上次複習經過幾天
+            let daysSinceReview = 0;
+            if (wordInDb.lastReviewDate > 0) {
+                daysSinceReview = (now - wordInDb.lastReviewDate) / oneDay;
             }
 
-            // 設定下次複習時間
-            wordInDb.nextReview = now + (wordInDb.interval * oneDay);
+            // --- FSRS 運算區 ---
+            let newStats;
+            if (wordInDb.repetitions === 0) {
+                // 第一次學習
+                newStats = initFSRS(grade);
+            } else {
+                // 複習
+                newStats = nextFSRS(wordInDb.fsrs_d, wordInDb.fsrs_s, grade, daysSinceReview);
+            }
 
-            // 更新 session 進度
+            // 更新數據
+            wordInDb.fsrs_d = newStats.d;
+            wordInDb.fsrs_s = newStats.s;
+            wordInDb.interval = nextInterval(wordInDb.fsrs_s); // 將 S 轉換為天數
+            wordInDb.nextReview = now + (wordInDb.interval * oneDay);
+            wordInDb.lastReviewDate = now;
+
+            // 統計
+            if (grade === 1) {
+                sessionStats.wrong++;
+                // 忘記時，repetitions 不一定要歸零，但 FSRS 邏輯中 S 會大幅下降
+                // 這裡我們只增加次數，讓 S 決定下次時間
+                wordInDb.repetitions += 1; 
+            } else {
+                sessionStats.correct++;
+                wordInDb.repetitions += 1;
+            }
+
             sessionStats.currentIndex++;
             updateHeader();
             saveData();
-
-            // 下一張
             showNextCard();
         }
 
         function showSummary() {
-            document.getElementById('card-view').classList.add('hidden');
+            document.getElementById('card-view').style.display = 'none';
             document.getElementById('action-area').style.display = 'none';
-            document.getElementById('summary-view').classList.remove('hidden');
-            document.getElementById('summary-view').style.display = 'flex'; // 確保 flex 生效
-
-            // 填寫數據
-            document.getElementById('summary-correct').innerText = sessionStats.correct;
-            document.getElementById('summary-wrong').innerText = sessionStats.wrong;
-
+            document.getElementById('summary-view').style.display = 'flex';
             const accuracy = Math.round((sessionStats.correct / sessionStats.total) * 100) || 0;
             document.getElementById('final-score').innerText = `${accuracy}%`;
-            
-            // 根據分數變色
-            const scoreCircle = document.getElementById('final-score');
-            if(accuracy >= 80) scoreCircle.style.borderColor = '#27ae60'; // Green
-            else if(accuracy >= 60) scoreCircle.style.borderColor = '#f39c12'; // Orange
-            else scoreCircle.style.borderColor = '#e74c3c'; // Red
-            scoreCircle.style.color = scoreCircle.style.borderColor;
         }
 
         function showEmptyState() {
-            document.getElementById('main-container').innerHTML = document.getElementById('empty-view').outerHTML;
-            document.getElementById('main-container').querySelector('#empty-view').classList.remove('hidden');
+            document.getElementById('card-view').style.display = 'none';
+            document.getElementById('empty-view').classList.remove('hidden');
+            document.getElementById('empty-view').style.display = 'flex';
             document.getElementById('action-area').style.display = 'none';
-            document.querySelector('.header-bar').style.display = 'none';
         }
 
-        function finishSession() {
-            // 簡單重整頁面，模擬回到主畫面
-            alert('進度已儲存，期待您明天的表現！');
-            location.reload();
+        // --- 管理功能 (沿用) ---
+        function openAdmin() {
+            document.getElementById('admin-modal').style.display = 'flex';
+            document.getElementById('data-area').value = JSON.stringify(words, null, 2);
+            updateTotalCount();
         }
-
-        function saveData() {
-            localStorage.setItem('gre_vocab_v3', JSON.stringify(words));
+        function closeAdmin() { document.getElementById('admin-modal').style.display = 'none'; }
+        function switchTab(tab) {
+            document.querySelectorAll('.section-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            event.target.classList.add('active');
         }
-
-        function resetData() {
-            if(confirm('確定要重置所有學習紀錄嗎？')) {
-                localStorage.removeItem('gre_vocab_v3');
-                location.reload();
-            }
+        function addNewWord() {
+            const w = document.getElementById('new-word').value.trim();
+            const d = document.getElementById('new-def').value.trim();
+            if (!w || !d) { alert('單字和定義是必填的！'); return; }
+            const newObj = {
+                id: Date.now(), word: w, phonetic: document.getElementById('new-phonetic').value.trim(), def: d, examples: [],
+                nextReview: Date.now(), interval: 0, repetitions: 0,
+                fsrs_s: 0, fsrs_d: 0, lastReviewDate: 0
+            };
+            const exEn = document.getElementById('new-ex-en').value.trim();
+            const exZh = document.getElementById('new-ex-zh').value.trim();
+            if (exEn) newObj.examples.push({ en: exEn, zh: exZh });
+            words.push(newObj);
+            saveData();
+            document.getElementById('new-word').value = ''; document.getElementById('new-phonetic').value = ''; document.getElementById('new-def').value = ''; document.getElementById('new-ex-en').value = ''; document.getElementById('new-ex-zh').value = '';
+            alert('單字已儲存！'); updateTotalCount();
         }
+        function exportData() { navigator.clipboard.writeText(document.getElementById('data-area').value).then(() => alert('複製成功！')); }
+        function importData() {
+            try {
+                const data = JSON.parse(document.getElementById('data-area').value);
+                if (Array.isArray(data)) { if(confirm('確定覆蓋？')) { words = data; saveData(); location.reload(); } }
+                else { alert('格式錯誤'); }
+            } catch (e) { alert('JSON 錯誤'); }
+        }
+        function saveData() { localStorage.setItem('gre_vocab_v5_fsrs', JSON.stringify(words)); }
+        function updateTotalCount() { document.getElementById('total-words-count').innerText = words.length; }
+        function resetAll() { if(confirm('確定清空？')) { localStorage.removeItem('gre_vocab_v5_fsrs'); location.reload(); } }
 
         init();
     </script>
-</body>
-</html>
