@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GRE字彙">
+    <title>GRE Anti-Forgetting</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f4f6f7;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            /* iOS Safe Area */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1 { 
+            color: var(--primary); 
+            margin-top: 20px; 
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        
+        .stats { color: #7f8c8d; margin-bottom: 20px; font-size: 0.9em; }
+
+        /* 卡片容器 */
+        .card-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 400px;
+            min-height: 350px;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            flex-grow: 1; 
+            margin-bottom: 20px;
+        }
+
+        .word { font-size: 2.2em; font-weight: 800; color: var(--primary); margin-bottom: 10px; }
+        .phonetic { color: #95a5a6; margin-bottom: 20px; font-family: "Menlo", monospace; font-size: 1.1em; }
+        
+        .definition { 
+            font-size: 1.3em; 
+            margin-bottom: 15px; 
+            color: #2c3e50; 
+            display: none; 
+            font-weight: 500;
+        }
+        .example {
+            font-size: 1em;
+            color: #7f8c8d;
+            font-style: italic;
+            display: none;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        /* 按鈕群組 */
+        .btn-group { 
+            display: flex; 
+            gap: 12px; 
+            width: 100%; 
+            position: sticky;
+            bottom: 20px;
+        }
+        
+        button {
+            border: none;
+            padding: 18px 0;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: transform 0.1s, opacity 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button:active { transform: scale(0.96); }
+
+        #show-answer { background-color: var(--primary); color: white; width: 100%; }
+        
+        .rating-btns { display: none; width: 100%; justify-content: space-between; gap: 10px;}
+        .btn-hard { background-color: #e74c3c; color: white; flex: 1; }
+        .btn-good { background-color: #f39c12; color: white; flex: 1; }
+        .btn-easy { background-color: #27ae60; color: white; flex: 1; }
+
+        .empty-state { display: none; color: #7f8c8d; }
+
+        /* 進度條 */
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            background-color: #dfe6e9;
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: var(--accent);
+            width: 0%;
+            transition: width 0.5s ease-out;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>GRE 記憶特訓</h1>
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="stats">待複習: <span id="due-count">0</span> / <span id="total-count">0</span></div>
+
+    <div class="card-container" id="card">
+        <div class="word" id="word-text">Loading...</div>
+        <div class="phonetic" id="word-phonetic"></div>
+        <div class="definition" id="word-def"></div>
+        <div class="example" id="word-ex"></div>
+        
+        <div class="empty-state" id="empty-msg">
+            <div style="font-size: 3em; margin-bottom: 20px;">🎉</div>
+            <h2>今日任務完成！</h2>
+            <p>記憶需要時間沉澱<br>請明天再來複習</p>
+            <button onclick="resetData()" style="background:#bdc3c7; margin-top:30px; font-size: 0.9em; padding: 10px 20px; box-shadow: none; color: white;">重置學習進度</button>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button id="show-answer" onclick="showAnswer()">顯示答案</button>
+        <div class="rating-btns" id="rating-btns">
+            <button class="btn-hard" onclick="rateWord(1)">忘記<br><small style="font-size:0.7em; opacity:0.8">重來</small></button>
+            <button class="btn-good" onclick="rateWord(2)">模糊<br><small style="font-size:0.7em; opacity:0.8">3天</small></button>
+            <button class="btn-easy" onclick="rateWord(3)">秒殺<br><small style="font-size:0.7em; opacity:0.8">7天</small></button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 預設 GRE 單字庫
+        const defaultWords = [
+            { id: 1, word: "Abate", phonetic: "/əˈbeɪt/", def: "v. 減輕；減少", ex: "The storm suddenly abated." },
+            { id: 2, word: "Cacophony", phonetic: "/kəˈkɒf.ə.ni/", def: "n. 刺耳的聲音", ex: "A cacophony of deafening alarm bells." },
+            { id: 3, word: "Enervate", phonetic: "/ˈen.ə.veɪt/", def: "v. 使衰弱", ex: "The hot sun enervated her." },
+            { id: 4, word: "Garrulous", phonetic: "/ˈɡær.əl.əs/", def: "adj. 喋喋不休的", ex: "He became more garrulous after drinking." },
+            { id: 5, word: "Laconic", phonetic: "/ləˈkɒn.ɪk/", def: "adj. 簡潔的", ex: "His laconic reply suggested a lack of interest." },
+            { id: 6, word: "Obdurate", phonetic: "/ˈɒb.dʒə.rət/", def: "adj. 頑固的", ex: "The president remained obdurate." },
+            { id: 7, word: "Paradox", phonetic: "/ˈpær.ə.dɒks/", def: "n. 悖論；矛盾", ex: "It's a curious paradox." },
+            { id: 8, word: "Waver", phonetic: "/ˈweɪ.vər/", def: "v. 動搖；猶豫", ex: "She never wavered in her determination." },
+            { id: 9, word: "Zeal", phonetic: "/ziːl/", def: "n. 熱誠；熱情", ex: "His zeal for 'real food' is infectious." },
+            { id: 10, word: "Misanthrope", phonetic: "/ˈmɪs.ən.θrəʊp/", def: "n. 厭世者", ex: "The old man was a misanthrope." }
+        ];
+
+        let words = [];
+        let currentWordIndex = null;
+        let dueWords = [];
+
+        function init() {
+            const stored = localStorage.getItem('gre_vocab_ios_data'); // 使用新的 key 避免衝突
+            if (stored) {
+                words = JSON.parse(stored);
+            } else {
+                words = defaultWords.map(w => ({
+                    ...w,
+                    nextReview: Date.now(),
+                    interval: 0,
+                    repetitions: 0
+                }));
+                saveData();
+            }
+            loadDueWords();
+        }
+
+        function loadDueWords() {
+            const now = Date.now();
+            dueWords = words.filter(w => w.nextReview <= now);
+            
+            document.getElementById('due-count').innerText = dueWords.length;
+            document.getElementById('total-count').innerText = words.length;
+            
+            const progress = ((words.length - dueWords.length) / words.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+
+            if (dueWords.length > 0) {
+                showNextCard();
+            } else {
+                showEmptyState();
+            }
+        }
+
+        function showNextCard() {
+            const randomIndex = Math.floor(Math.random() * dueWords.length);
+            const wordObj = dueWords[randomIndex];
+            currentWordIndex = words.findIndex(w => w.id === wordObj.id);
+
+            document.getElementById('word-text').innerText = wordObj.word;
+            document.getElementById('word-phonetic').innerText = wordObj.phonetic;
+            document.getElementById('word-def').innerText = wordObj.def;
+            document.getElementById('word-ex').innerText = wordObj.ex;
+
+            document.getElementById('word-def').style.display = 'none';
+            document.getElementById('word-ex').style.display = 'none';
+            document.getElementById('show-answer').style.display = 'block';
+            document.getElementById('rating-btns').style.display = 'none';
+            document.getElementById('card').style.display = 'flex';
+            document.getElementById('empty-msg').style.display = 'none';
+            
+            // 隱藏按鈕群組（如果是空狀態）
+            document.querySelector('.btn-group').style.display = 'flex';
+        }
+
+        function showAnswer() {
+            document.getElementById('word-def').style.display = 'block';
+            document.getElementById('word-ex').style.display = 'block';
+            document.getElementById('show-answer').style.display = 'none';
+            document.getElementById('rating-btns').style.display = 'flex';
+        }
+
+        function rateWord(quality) {
+            const word = words[currentWordIndex];
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            if (quality === 1) { 
+                word.interval = 1; 
+                word.repetitions = 0;
+            } else if (quality === 2) { 
+                word.interval = word.interval === 0 ? 3 : Math.ceil(word.interval * 1.5);
+                word.repetitions += 1;
+            } else if (quality === 3) { 
+                word.interval = word.interval === 0 ? 7 : Math.ceil(word.interval * 2.5);
+                word.repetitions += 1;
+            }
+
+            word.nextReview = now + (word.interval * oneDay);
+            saveData();
+            loadDueWords();
+        }
+
+        function showEmptyState() {
+            document.getElementById('word-text').parentElement.querySelectorAll('.word, .phonetic, .definition, .example').forEach(el => el.style.display = 'none');
+            document.querySelector('.btn-group').style.display = 'none'; // 隱藏按鈕
+            document.getElementById('empty-msg').style.display = 'block';
+        }
+
+        function saveData() {
+            localStorage.setItem('gre_vocab_ios_data', JSON.stringify(words));
+        }
+
+        function resetData() {
+            if(confirm('確定要重置所有學習紀錄嗎？')) {
+                localStorage.removeItem('gre_vocab_ios_data');
+                location.reload();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
