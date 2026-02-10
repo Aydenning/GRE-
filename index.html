@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="GRE圖像記憶">
-    <title>GRE Visual Memory</title>
+    <meta name="apple-mobile-web-app-title" content="GRE每日任務">
+    <title>GRE Daily 30</title>
     <style>
         :root {
             --primary: #2c3e50;
-            --accent: #3498db;
-            --bg: #f0f2f5;
+            --accent: #27ae60;
+            --danger: #e74c3c;
+            --bg: #f4f6f7;
             --card-bg: #ffffff;
         }
 
@@ -29,73 +30,91 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        h1 { 
-            color: var(--primary); 
-            margin-top: 10px; 
-            font-size: 1.4rem;
-            text-align: center;
-            margin-bottom: 5px;
+        /* 頂部進度條 */
+        .header-bar {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            margin-top: 10px;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .progress-track {
+            flex-grow: 1;
+            height: 8px;
+            background-color: #dfe6e9;
+            border-radius: 4px;
+            margin: 0 15px;
+            overflow: hidden;
         }
         
-        .stats { color: #7f8c8d; margin-bottom: 15px; font-size: 0.85em; }
+        .progress-fill {
+            height: 100%;
+            background-color: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
 
         /* 卡片容器 */
         .card-container {
             background: var(--card-bg);
             width: 100%;
             max-width: 400px;
-            /* 讓卡片高度更有彈性以容納圖片 */
-            min-height: 400px; 
+            min-height: 500px;
             border-radius: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* 改為從上開始排 */
+            justify-content: center;
             align-items: center;
-            padding: 25px;
-            text-align: center;
+            padding: 30px;
             position: relative;
             flex-grow: 1; 
             margin-bottom: 20px;
-            overflow: hidden;
+            transition: transform 0.2s;
         }
 
-        /* 圖片樣式 */
-        .word-image {
-            width: 100%;
-            height: 200px;
-            object-fit: cover; /* 保持圖片比例並填滿 */
-            border-radius: 12px;
-            margin-bottom: 20px;
-            background-color: #eee;
-            display: none; /* 預設隱藏，有連結才顯示 */
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-
-        .word { font-size: 2.4em; font-weight: 800; color: var(--primary); margin-bottom: 5px; line-height: 1.1; }
-        .phonetic { color: #95a5a6; margin-bottom: 15px; font-family: "Menlo", monospace; font-size: 1.1em; }
+        .word { font-size: 2.5em; font-weight: 800; color: var(--primary); margin-bottom: 10px; text-align: center; line-height: 1.1; }
+        .phonetic { color: #95a5a6; margin-bottom: 20px; font-family: "Menlo", monospace; font-size: 1.1em; }
         
         .definition { 
-            font-size: 1.25em; 
-            margin-bottom: 15px; 
-            color: #2c3e50; 
+            font-size: 1.3em; 
+            margin-bottom: 20px; 
+            color: #d35400; 
             display: none; 
             font-weight: 600;
-        }
-        .example {
-            font-size: 1em;
-            color: #57606f;
-            font-style: italic;
-            display: none;
-            margin-bottom: 20px;
-            line-height: 1.5;
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 8px;
+            text-align: center;
             width: 100%;
-            box-sizing: border-box;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
         }
 
+        /* 例句區塊 */
+        .examples-container {
+            width: 100%;
+            display: none;
+            text-align: left;
+            overflow-y: auto;
+            max-height: 250px;
+        }
+
+        .example-item {
+            background-color: #f8f9fa;
+            border-left: 4px solid var(--accent);
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .en-sent { font-size: 1.05em; color: #34495e; margin-bottom: 5px; line-height: 1.4; font-weight: 500; }
+        .zh-sent { font-size: 0.9em; color: #7f8c8d; line-height: 1.4; }
+
+        /* 按鈕群組 */
         .btn-group { 
             display: flex; 
             gap: 12px; 
@@ -107,246 +126,364 @@
         
         button {
             border: none;
-            padding: 16px 0;
-            border-radius: 14px;
+            padding: 18px 0;
+            border-radius: 16px;
             cursor: pointer;
             font-size: 1.1em;
-            font-weight: 600;
-            transition: transform 0.1s, opacity 0.2s;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-weight: 700;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         button:active { transform: scale(0.96); }
 
         #show-answer { background-color: var(--primary); color: white; width: 100%; }
         
         .rating-btns { display: none; width: 100%; justify-content: space-between; gap: 10px;}
-        .btn-hard { background-color: #e74c3c; color: white; flex: 1; }
+        .btn-hard { background-color: var(--danger); color: white; flex: 1; }
         .btn-good { background-color: #f39c12; color: white; flex: 1; }
-        .btn-easy { background-color: #27ae60; color: white; flex: 1; }
+        .btn-easy { background-color: var(--accent); color: white; flex: 1; }
 
-        .progress-container {
+        /* 結算畫面 (Summary View) */
+        .summary-view {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
             width: 100%;
-            max-width: 400px;
-            background-color: #dfe6e9;
-            border-radius: 10px;
-            height: 6px;
-            overflow: hidden;
-            margin-bottom: 8px;
+            animation: fadeIn 0.5s;
         }
-        .progress-bar {
-            height: 100%;
-            background-color: var(--accent);
-            width: 0%;
-            transition: width 0.5s ease-out;
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 8px solid var(--accent);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 20px;
         }
+
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            width: 40%;
+        }
+        .stat-num { font-size: 1.5em; font-weight: bold; display: block; }
+        .stat-label { font-size: 0.9em; color: #7f8c8d; }
         
-        .empty-state { display: none; margin-top: 50px; }
+        .stat-correct { color: var(--accent); }
+        .stat-wrong { color: var(--danger); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hidden { display: none !important; }
 
     </style>
 </head>
 <body>
 
-    <h1>GRE 圖像記憶</h1>
-    <div class="progress-container">
-        <div class="progress-bar" id="progress-bar"></div>
-    </div>
-    <div class="stats">待複習: <span id="due-count">0</span> / <span id="total-count">0</span></div>
-
-    <div class="card-container" id="card">
-        <img id="word-img" class="word-image" src="" alt="word image">
-
-        <div class="word" id="word-text">Loading...</div>
-        <div class="phonetic" id="word-phonetic"></div>
-        <div class="definition" id="word-def"></div>
-        <div class="example" id="word-ex"></div>
-        
-        <div class="empty-state" id="empty-msg">
-            <div style="font-size: 3em; margin-bottom: 20px;">🎉</div>
-            <h2>今日任務完成！</h2>
-            <p>休息是記憶的一部分</p>
-            <button onclick="resetData()" style="background:#bdc3c7; margin-top:30px; padding:10px 20px; color:white; box-shadow:none;">重置進度</button>
+    <div class="header-bar">
+        <span id="progress-text">0 / 30</span>
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
         </div>
+        <span id="session-score" style="color: var(--accent)">✓ 0</span>
     </div>
 
-    <div class="btn-group">
+    <div class="card-container" id="main-container">
+        
+        <div id="card-view">
+            <div class="word" id="word-text">Loading...</div>
+            <div class="phonetic" id="word-phonetic"></div>
+            <div class="definition" id="word-def"></div>
+            <div class="examples-container" id="word-examples"></div>
+        </div>
+
+        <div id="summary-view" class="summary-view">
+            <h2>今日任務完成！</h2>
+            <div class="score-circle" id="final-score">85%</div>
+            
+            <div class="summary-stats">
+                <div class="stat-box">
+                    <span class="stat-num stat-correct" id="summary-correct">0</span>
+                    <span class="stat-label">正確 (記得)</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-num stat-wrong" id="summary-wrong">0</span>
+                    <span class="stat-label">錯誤 (忘記)</span>
+                </div>
+            </div>
+
+            <p style="color:#7f8c8d; line-height:1.6; margin-bottom: 30px;">
+                完成每日 30 字的訓練是記憶的關鍵。<br>
+                請讓大腦休息，明天繼續挑戰！
+            </p>
+            
+            <button onclick="finishSession()" style="background:#95a5a6; width:100%; font-size:1em; padding:15px;">關閉並儲存進度</button>
+        </div>
+
+        <div id="empty-view" class="summary-view hidden">
+            <div style="font-size: 4em; margin-bottom: 20px;">☕️</div>
+            <h2>目前沒有待辦事項</h2>
+            <p>您已經完成了所有的複習進度。</p>
+            <button onclick="resetData()" style="background:#bdc3c7; margin-top:30px; padding:10px 20px; font-size:0.9em; box-shadow:none; color: white;">重置所有資料 (測試用)</button>
+        </div>
+
+    </div>
+
+    <div class="btn-group" id="action-area">
         <button id="show-answer" onclick="showAnswer()">顯示答案</button>
         <div class="rating-btns" id="rating-btns">
-            <button class="btn-hard" onclick="rateWord(1)">忘記</button>
-            <button class="btn-good" onclick="rateWord(2)">模糊</button>
+            <button class="btn-hard" onclick="rateWord(1)">忘記了</button>
+            <button class="btn-good" onclick="rateWord(2)">有點印象</button>
             <button class="btn-easy" onclick="rateWord(3)">秒殺</button>
         </div>
     </div>
 
     <script>
-        // 1. 預設 GRE 單字庫 (包含 img 屬性)
-        // 注意：這裡的圖片連結來自 Unsplash Source，這是免費圖庫
+        // 設定每日測驗量
+        const DAILY_LIMIT = 30;
+
+        // 30個範例單字 (您可以自行擴充至 3000)
         const defaultWords = [
-            { 
-                id: 1, 
-                word: "Abate", 
-                phonetic: "/əˈbeɪt/", 
-                def: "v. 減輕；減少", 
-                ex: "The storm suddenly abated.",
-                // 暴風雨減弱的圖
-                img: "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=500&q=80" 
-            },
-            { 
-                id: 2, 
-                word: "Cacophony", 
-                phonetic: "/kəˈkɒf.ə.ni/", 
-                def: "n. 刺耳的聲音", 
-                ex: "A cacophony of deafening alarm bells.",
-                // 城市噪音或混亂的圖
-                img: "https://images.unsplash.com/photo-1519810725537-c3b886915181?w=500&q=80"
-            },
-            { 
-                id: 3, 
-                word: "Enervate", 
-                phonetic: "/ˈen.ə.veɪt/", 
-                def: "v. 使衰弱；使無力", 
-                ex: "The hot sun enervated her.",
-                // 疲累的人
-                img: "https://images.unsplash.com/photo-1473280025148-b4371720d480?w=500&q=80"
-            },
-            { 
-                id: 4, 
-                word: "Paradox", 
-                phonetic: "/ˈpær.ə.dɒks/", 
-                def: "n. 悖論；矛盾", 
-                ex: "It is a paradox that such a rich country has so much poverty.",
-                // 矛盾概念圖
-                img: "https://images.unsplash.com/photo-1535905557558-afc4877a26fc?w=500&q=80"
-            },
-            { 
-                id: 5, 
-                word: "Zeal", 
-                phonetic: "/ziːl/", 
-                def: "n. 熱誠；熱情", 
-                ex: "His zeal for what he calls 'real food' is infectious.",
-                // 熱情的人
-                img: "https://images.unsplash.com/photo-1542596768-5d1d21f1cfb6?w=500&q=80"
-            }
+            { id: 1, word: "Abate", phonetic: "/əˈbeɪt/", def: "v. 減輕；減少", examples: [{en: "The storm suddenly abated.", zh: "暴風雨突然減弱了。"}, {en: "They waited for the fury to abate.", zh: "他們等待憤怒平息。"}] },
+            { id: 2, word: "Aberrant", phonetic: "/əˈber.ənt/", def: "adj. 異常的", examples: [{en: "Aberrant behavior is a sign of stress.", zh: "異常行為是壓力的跡象。"}, {en: "The chromosome is aberrant.", zh: "這個染色體是異常的。"}] },
+            { id: 3, word: "Abeyance", phonetic: "/əˈbeɪ.əns/", def: "n. 暫時擱置", examples: [{en: "The plan is in abeyance.", zh: "計畫暫時擱置。"}, {en: "Hostilities are in abeyance.", zh: "敵對狀態暫時中止。"}] },
+            { id: 4, word: "Abscond", phonetic: "/æbˈskɒnd/", def: "v. 潛逃", examples: [{en: "He absconded with the money.", zh: "他捲款潛逃了。"}, {en: "The prisoner absconded.", zh: "囚犯逃跑了。"}] },
+            { id: 5, word: "Abstemious", phonetic: "/æbˈstiː.mi.əs/", def: "adj. 有節制的", examples: [{en: "He is abstemious in eating.", zh: "他飲食很有節制。"}, {en: "An abstemious life.", zh: "簡樸的生活。"}] },
+            { id: 6, word: "Admonish", phonetic: "/ədˈmɒn.ɪʃ/", def: "v. 告誡", examples: [{en: "She admonished him gently.", zh: "她溫和地告誡他。"}, {en: "Users were admonished to change passwords.", zh: "用戶被告誡要更改密碼。"}] },
+            { id: 7, word: "Adulterate", phonetic: "/əˈdʌl.tə.reɪt/", def: "v. 摻雜", examples: [{en: "Milk adulterated with water.", zh: "摻了水的牛奶。"}, {en: "Don't adulterate the truth.", zh: "不要混淆視聽。"}] },
+            { id: 8, word: "Aesthetic", phonetic: "/esˈθet.ɪk/", def: "adj. 美學的", examples: [{en: "Aesthetic appeal.", zh: "美學吸引力。"}, {en: "The building has little aesthetic value.", zh: "這棟建築沒什麼美感。"}] },
+            { id: 9, word: "Aggrandize", phonetic: "/əˈɡræn.daɪz/", def: "v. 擴大(權勢)", examples: [{en: "He wanted to aggrandize his estate.", zh: "他想擴大他的莊園。"}, {en: "Aggrandize oneself.", zh: "抬高身價。"}] },
+            { id: 10, word: "Alacrity", phonetic: "/əˈlæk.rə.ti/", def: "n. 欣然；敏捷", examples: [{en: "She accepted with alacrity.", zh: "她欣然接受。"}, {en: "He moved with alacrity.", zh: "他動作敏捷。"}] },
+            { id: 11, word: "Amalgamate", phonetic: "/əˈmæl.ɡə.meɪt/", def: "v. 合併", examples: [{en: "The schools amalgamated.", zh: "學校合併了。"}, {en: "Amalgamate two departments.", zh: "合併兩個部門。"}] },
+            { id: 12, word: "Ambiguous", phonetic: "/æmˈbɪɡ.ju.əs/", def: "adj. 模稜兩可的", examples: [{en: "An ambiguous answer.", zh: "模稜兩可的回答。"}, {en: "The wording is ambiguous.", zh: "措辭含糊。"}] },
+            { id: 13, word: "Ameliorate", phonetic: "/əˈmiː.li.ə.reɪt/", def: "v. 改善", examples: [{en: "Ameliorate the situation.", zh: "改善局勢。"}, {en: "Steps to ameliorate poverty.", zh: "改善貧困的措施。"}] },
+            { id: 14, word: "Anachronism", phonetic: "/əˈnæk.rə.nɪ.zəm/", def: "n. 時代錯誤", examples: [{en: "The sword is an anachronism in this movie.", zh: "這部電影出現劍是時代錯誤。"}, {en: "He is an anachronism.", zh: "他是個老古董。"}] },
+            { id: 15, word: "Analogous", phonetic: "/əˈnæl.ə.ɡəs/", def: "adj. 類似的", examples: [{en: "Brains are analogous to computers.", zh: "大腦類似電腦。"}, {en: "The situation is analogous.", zh: "情況類似。"}] },
+            { id: 16, word: "Anarchy", phonetic: "/ˈæn.ə.ki/", def: "n. 無政府狀態", examples: [{en: "The city slid into anarchy.", zh: "城市陷入混亂。"}, {en: "Total anarchy.", zh: "完全的無政府狀態。"}] },
+            { id: 17, word: "Anomalous", phonetic: "/əˈnɒm.ə.ləs/", def: "adj. 反常的", examples: [{en: "Anomalous results.", zh: "反常的結果。"}, {en: "In an anomalous position.", zh: "處於反常的位置。"}] },
+            { id: 18, word: "Antipathy", phonetic: "/ænˈtɪp.ə.θi/", def: "n. 反感", examples: [{en: "Deep antipathy.", zh: "深切的反感。"}, {en: "Mutual antipathy.", zh: "互相厭惡。"}] },
+            { id: 19, word: "Apathy", phonetic: "/ˈæp.ə.θi/", def: "n. 冷漠", examples: [{en: "Voter apathy.", zh: "選民的冷漠。"}, {en: "Apathy towards the poor.", zh: "對窮人的冷漠。"}] },
+            { id: 20, word: "Appease", phonetic: "/əˈpiːz/", def: "v. 平息；安撫", examples: [{en: "Appease the angry crowd.", zh: "安撫憤怒的群眾。"}, {en: "Appease one's hunger.", zh: "充飢。"}] },
+            { id: 21, word: "Apposite", phonetic: "/ˈæp.ə.zɪt/", def: "adj. 適當的", examples: [{en: "An apposite remark.", zh: "貼切的評論。"}, {en: "Very apposite to the case.", zh: "對此案非常適當。"}] },
+            { id: 22, word: "Approbation", phonetic: "/ˌæp.rəˈbeɪ.ʃən/", def: "n. 認可", examples: [{en: "Win approbation.", zh: "獲得認可。"}, {en: "Looked for signs of approbation.", zh: "尋找贊許的跡象。"}] },
+            { id: 23, word: "Arbitrary", phonetic: "/ˈɑː.bɪ.trər.i/", def: "adj. 任意的；武斷的", examples: [{en: "An arbitrary decision.", zh: "武斷的決定。"}, {en: "Arbitrary rule.", zh: "專制統治。"}] },
+            { id: 24, word: "Arcane", phonetic: "/ɑːˈkeɪn/", def: "adj. 深奧的", examples: [{en: "Arcane rituals.", zh: "神祕的儀式。"}, {en: "Arcane language.", zh: "晦澀的語言。"}] },
+            { id: 25, word: "Archaic", phonetic: "/ɑːˈkeɪ.ɪk/", def: "adj. 古老的", examples: [{en: "Archaic laws.", zh: "過時的法律。"}, {en: "Archaic words.", zh: "古字。"}] },
+            { id: 26, word: "Arduous", phonetic: "/ˈɑː.dʒu.əs/", def: "adj. 艱鉅的", examples: [{en: "Arduous journey.", zh: "艱鉅的旅程。"}, {en: "Arduous task.", zh: "艱鉅的任務。"}] },
+            { id: 27, word: "Articulate", phonetic: "/ɑːˈtɪk.jə.lət/", def: "v. 清晰表達", examples: [{en: "Articulate your thoughts.", zh: "清楚表達你的想法。"}, {en: "Highly articulate.", zh: "口齒非常伶俐。"}] },
+            { id: 28, word: "Artless", phonetic: "/ˈɑːt.ləs/", def: "adj. 天真的", examples: [{en: "Artless sincerity.", zh: "天真無邪的真誠。"}, {en: "An artless question.", zh: "單純的問題。"}] },
+            { id: 29, word: "Ascetic", phonetic: "/əˈset.ɪk/", def: "adj. 苦行的", examples: [{en: "Ascetic life.", zh: "苦行生活。"}, {en: "Ascetic monk.", zh: "苦行僧。"}] },
+            { id: 30, word: "Assuage", phonetic: "/əˈsweɪdʒ/", def: "v. 緩和", examples: [{en: "Assuage his grief.", zh: "撫平他的悲傷。"}, {en: "Assuage thirst.", zh: "解渴。"}] }
         ];
 
         let words = [];
-        let currentWordIndex = null;
-        let dueWords = [];
+        let sessionQueue = []; // 今天的學習隊列
+        let sessionStats = { correct: 0, wrong: 0, total: 0, currentIndex: 0 };
+        let currentWord = null;
 
         function init() {
-            // 使用不同的 key 來區分是否有圖片的版本
-            const stored = localStorage.getItem('gre_vocab_img_data'); 
+            // 使用 v3 key 避免衝突
+            const stored = localStorage.getItem('gre_vocab_v3');
+            
             if (stored) {
                 words = JSON.parse(stored);
             } else {
+                // 初始化所有單字
                 words = defaultWords.map(w => ({
                     ...w,
-                    nextReview: Date.now(),
+                    nextReview: Date.now(), // 初始狀態皆為可複習
                     interval: 0,
                     repetitions: 0
                 }));
                 saveData();
             }
-            loadDueWords();
+
+            // 準備今日任務
+            prepareSession();
         }
 
-        function loadDueWords() {
+        function prepareSession() {
             const now = Date.now();
-            dueWords = words.filter(w => w.nextReview <= now);
             
-            document.getElementById('due-count').innerText = dueWords.length;
-            document.getElementById('total-count').innerText = words.length;
+            // 1. 找出所有「到期」的舊單字 (Review)
+            const dueReview = words.filter(w => w.nextReview <= now && w.repetitions > 0);
             
-            const progress = ((words.length - dueWords.length) / words.length) * 100;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
+            // 2. 找出所有「新單字」 (New)
+            const newWords = words.filter(w => w.repetitions === 0);
 
-            if (dueWords.length > 0) {
+            // 3. 組合隊列：優先複習，如果不滿 30 字，用新單字補
+            sessionQueue = [...dueReview];
+            
+            if (sessionQueue.length < DAILY_LIMIT) {
+                const quotaLeft = DAILY_LIMIT - sessionQueue.length;
+                sessionQueue = sessionQueue.concat(newWords.slice(0, quotaLeft));
+            } else {
+                // 如果到期單字超過 30，就只取前 30 (避免負擔太重)
+                sessionQueue = sessionQueue.slice(0, DAILY_LIMIT);
+            }
+
+            // 初始化 session 數據
+            sessionStats.total = sessionQueue.length;
+            sessionStats.currentIndex = 0;
+            sessionStats.correct = 0;
+            sessionStats.wrong = 0;
+
+            updateHeader();
+
+            if (sessionQueue.length > 0) {
                 showNextCard();
             } else {
                 showEmptyState();
             }
         }
 
+        function updateHeader() {
+            // 更新進度條
+            const progress = sessionStats.currentIndex;
+            const total = sessionStats.total;
+            const percent = total === 0 ? 0 : (progress / total) * 100;
+            
+            document.getElementById('progress-text').innerText = `${progress} / ${total}`;
+            document.getElementById('progress-fill').style.width = `${percent}%`;
+            document.getElementById('session-score').innerText = `✓ ${sessionStats.correct}`;
+        }
+
         function showNextCard() {
-            const randomIndex = Math.floor(Math.random() * dueWords.length);
-            const wordObj = dueWords[randomIndex];
-            currentWordIndex = words.findIndex(w => w.id === wordObj.id);
-
-            // 設定文字
-            document.getElementById('word-text').innerText = wordObj.word;
-            document.getElementById('word-phonetic').innerText = wordObj.phonetic;
-            document.getElementById('word-def').innerText = wordObj.def;
-            document.getElementById('word-ex').innerText = wordObj.ex;
-
-            // 設定圖片 logic
-            const imgEl = document.getElementById('word-img');
-            if (wordObj.img && wordObj.img.trim() !== "") {
-                imgEl.src = wordObj.img;
-                imgEl.style.display = 'block';
-            } else {
-                imgEl.style.display = 'none'; // 如果沒圖片連結就隱藏
+            // 如果隊列跑完了 -> 顯示結算
+            if (sessionStats.currentIndex >= sessionStats.total) {
+                showSummary();
+                return;
             }
 
-            // 狀態重置
+            currentWord = sessionQueue[sessionStats.currentIndex];
+
+            // 渲染卡片
+            document.getElementById('word-text').innerText = currentWord.word;
+            document.getElementById('word-phonetic').innerText = currentWord.phonetic;
+            document.getElementById('word-def').innerText = currentWord.def;
+
+            // 渲染例句
+            const exContainer = document.getElementById('word-examples');
+            exContainer.innerHTML = '';
+            if (currentWord.examples) {
+                currentWord.examples.forEach(ex => {
+                    const div = document.createElement('div');
+                    div.className = 'example-item';
+                    div.innerHTML = `<div class="en-sent">${ex.en}</div><div class="zh-sent">${ex.zh}</div>`;
+                    exContainer.appendChild(div);
+                });
+            }
+
+            // 重置介面狀態
             document.getElementById('word-def').style.display = 'none';
-            document.getElementById('word-ex').style.display = 'none';
+            document.getElementById('word-examples').style.display = 'none';
             document.getElementById('show-answer').style.display = 'block';
             document.getElementById('rating-btns').style.display = 'none';
-            document.getElementById('card').style.display = 'flex';
-            document.getElementById('empty-msg').style.display = 'none';
-            
-            document.querySelector('.btn-group').style.display = 'flex';
+            document.getElementById('card-view').classList.remove('hidden');
+            document.getElementById('summary-view').classList.add('hidden');
+            document.getElementById('action-area').style.display = 'flex';
         }
 
         function showAnswer() {
             document.getElementById('word-def').style.display = 'block';
-            document.getElementById('word-ex').style.display = 'block';
+            document.getElementById('word-examples').style.display = 'block';
             document.getElementById('show-answer').style.display = 'none';
             document.getElementById('rating-btns').style.display = 'flex';
         }
 
         function rateWord(quality) {
-            const word = words[currentWordIndex];
+            // 找出在主資料庫中的實際參照 (因為 sessionQueue 只是副本)
+            const wordInDb = words.find(w => w.id === currentWord.id);
             const now = Date.now();
             const oneDay = 24 * 60 * 60 * 1000;
 
-            if (quality === 1) { 
-                word.interval = 1; 
-                word.repetitions = 0;
-            } else if (quality === 2) { 
-                word.interval = word.interval === 0 ? 3 : Math.ceil(word.interval * 1.5);
-                word.repetitions += 1;
-            } else if (quality === 3) { 
-                word.interval = word.interval === 0 ? 7 : Math.ceil(word.interval * 2.5);
-                word.repetitions += 1;
+            // 記分板邏輯
+            if (quality === 1) {
+                // 忘記 -> 算錯 -> 明天再複習
+                sessionStats.wrong++;
+                wordInDb.interval = 1; 
+                wordInDb.repetitions = 0; // 重置熟練度
+            } else {
+                // 記得 -> 算對
+                sessionStats.correct++;
+                if (quality === 2) { // 模糊
+                    wordInDb.interval = wordInDb.interval === 0 ? 3 : Math.ceil(wordInDb.interval * 1.5);
+                    wordInDb.repetitions += 1;
+                } else { // 秒殺
+                    wordInDb.interval = wordInDb.interval === 0 ? 7 : Math.ceil(wordInDb.interval * 2.5);
+                    wordInDb.repetitions += 1;
+                }
             }
 
-            word.nextReview = now + (word.interval * oneDay);
+            // 設定下次複習時間
+            wordInDb.nextReview = now + (wordInDb.interval * oneDay);
+
+            // 更新 session 進度
+            sessionStats.currentIndex++;
+            updateHeader();
             saveData();
-            loadDueWords();
+
+            // 下一張
+            showNextCard();
+        }
+
+        function showSummary() {
+            document.getElementById('card-view').classList.add('hidden');
+            document.getElementById('action-area').style.display = 'none';
+            document.getElementById('summary-view').classList.remove('hidden');
+            document.getElementById('summary-view').style.display = 'flex'; // 確保 flex 生效
+
+            // 填寫數據
+            document.getElementById('summary-correct').innerText = sessionStats.correct;
+            document.getElementById('summary-wrong').innerText = sessionStats.wrong;
+
+            const accuracy = Math.round((sessionStats.correct / sessionStats.total) * 100) || 0;
+            document.getElementById('final-score').innerText = `${accuracy}%`;
+            
+            // 根據分數變色
+            const scoreCircle = document.getElementById('final-score');
+            if(accuracy >= 80) scoreCircle.style.borderColor = '#27ae60'; // Green
+            else if(accuracy >= 60) scoreCircle.style.borderColor = '#f39c12'; // Orange
+            else scoreCircle.style.borderColor = '#e74c3c'; // Red
+            scoreCircle.style.color = scoreCircle.style.borderColor;
         }
 
         function showEmptyState() {
-            document.getElementById('card').style.display = 'none'; // 隱藏卡片
-            document.querySelector('.btn-group').style.display = 'none';
-            
-            // 讓空狀態顯示在畫面中間
-            const container = document.getElementById('card').parentNode;
-            let emptyEl = document.getElementById('empty-msg-standalone');
-            
-            // 這裡簡單處理：直接用原本卡片裡的空狀態
-            document.getElementById('card').style.display = 'flex';
-            document.getElementById('word-img').style.display = 'none';
-            document.getElementById('word-text').parentElement.querySelectorAll('.word, .phonetic, .definition, .example').forEach(el => el.style.display = 'none');
-            document.getElementById('empty-msg').style.display = 'block';
+            document.getElementById('main-container').innerHTML = document.getElementById('empty-view').outerHTML;
+            document.getElementById('main-container').querySelector('#empty-view').classList.remove('hidden');
+            document.getElementById('action-area').style.display = 'none';
+            document.querySelector('.header-bar').style.display = 'none';
+        }
+
+        function finishSession() {
+            // 簡單重整頁面，模擬回到主畫面
+            alert('進度已儲存，期待您明天的表現！');
+            location.reload();
         }
 
         function saveData() {
-            localStorage.setItem('gre_vocab_img_data', JSON.stringify(words));
+            localStorage.setItem('gre_vocab_v3', JSON.stringify(words));
         }
 
         function resetData() {
             if(confirm('確定要重置所有學習紀錄嗎？')) {
-                localStorage.removeItem('gre_vocab_img_data');
+                localStorage.removeItem('gre_vocab_v3');
                 location.reload();
             }
         }
